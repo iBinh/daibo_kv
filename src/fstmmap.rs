@@ -21,9 +21,11 @@ impl FstMmap {
             let push_result = items.push(&datum.1)?;
             fst_input.push((datum.0, push_result));
         }
+        items.mmap.flush_async();
         let mut wtr = io::BufWriter::new(File::create(&fst_path)?);
         let mut builder = MapBuilder::new(wtr).unwrap();
         fst_input.sort();
+        fst_input.dedup_by(|a, b| a.0 == b.0);
         for elem in fst_input {
             builder.insert(elem.0, elem.1).unwrap();
         }

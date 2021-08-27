@@ -59,7 +59,7 @@ impl VecMap {
         (&mut self.mmap[start..end]).write(elem)?;
         self.set_len(end);
         let packed = pack(start as u32, end as u32);
-        self.mmap.flush_async()?;
+        // self.mmap.flush_async()?;
         Ok(packed)
     }
 }
