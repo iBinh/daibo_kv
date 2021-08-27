@@ -21,8 +21,8 @@ impl FstMmap {
             let push_result = items.push(&datum.1)?;
             fst_input.push((datum.0, push_result));
         }
-        items.mmap.flush_async();
-        let mut wtr = io::BufWriter::new(File::create(&fst_path)?);
+        items.mmap.flush_async()?;
+        let wtr = io::BufWriter::new(File::create(&fst_path)?);
         let mut builder = MapBuilder::new(wtr).unwrap();
         fst_input.sort();
         fst_input.dedup_by(|a, b| a.0 == b.0);
@@ -41,10 +41,10 @@ impl FstMmap {
     }
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Option<&[u8]> {
         match self.fst_map.get(key){
-            None => {return None}
+            None => {None}
             Some(packed) => {
                 let (start, end) = unpack(packed);
-                return self.items.get_bytes(start as usize, (end - start) as usize);
+                self.items.get_bytes(start as usize, (end - start) as usize)
             }
         }
     }

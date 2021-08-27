@@ -1,4 +1,4 @@
-use fst::{IntoStreamer, Streamer, Map, MapBuilder};
+use fst::Map;
 #[derive(Clone, Debug)]
 pub struct FstMap<T> {
     map: Map<Vec<u8>>,
@@ -25,7 +25,7 @@ impl <T> FstMap<T> {
     #[inline]
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Option<&T> {
         match self.map.get(key) {
-            None => {return None},
+            None => {None},
             Some(val) => {
                 Some(&self.items[val as usize])
             }

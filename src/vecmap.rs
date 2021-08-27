@@ -1,9 +1,8 @@
 use memmap::{MmapMut, MmapOptions};
 use std::convert::TryInto;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, Write};
-use std::ops::{Deref, DerefMut};
-use std::{cmp::max, mem::size_of,};
+use std::io::{Write,};
+use std::cmp::max;
 pub struct VecMap {
     pub mmap: MmapMut,
     pub file: File
@@ -14,10 +13,10 @@ impl VecMap {
     pub fn with_capacity(fp: &str, cap: usize) -> std::io::Result<Self> {
         let file = OpenOptions::new().read(true).append(true).create(true).open(fp)?;
         let size = max(1, cap);
-        file.set_len(size as u64);
+        file.set_len(size as u64)?;
         let mut mmap = unsafe {MmapOptions::new().map_mut(&file)?};
         let size_bytes = u32::to_le_bytes(4);
-        (&mut mmap[..4]).write(&size_bytes)?;
+        (&mut mmap[..4]).write_all(&size_bytes)?;
         Ok(Self {
             mmap,
             file
@@ -36,15 +35,14 @@ impl VecMap {
         u32::from_le_bytes(*pop(&self.mmap[..4])) as usize
     }
     #[inline]
-    pub fn set_len(&mut self, len: usize) {
+    pub fn set_len(&mut self, len: usize) -> std::io::Result<()>{
         let size_bytes = u32::to_le_bytes(len as u32);
-        (&mut self.mmap[..4]).write(&size_bytes);
+        (&mut self.mmap[..4]).write_all(&size_bytes)
     }
     #[inline]
     pub fn get_bytes(&self, index: usize, len: usize) -> Option<&[u8]> {
         if let Some(slice) = self.mmap.get(index..) {
-            let res=slice.get(0..len);
-            res           
+            slice.get(0..len)
         }
         else {None}
     }
@@ -56,8 +54,8 @@ impl VecMap {
             self.mmap = unsafe {MmapOptions::new().map_mut(&self.file)?};
         }
         else {}
-        (&mut self.mmap[start..end]).write(elem)?;
-        self.set_len(end);
+        (&mut self.mmap[start..end]).write_all(elem)?;
+        self.set_len(end)?;
         let packed = pack(start as u32, end as u32);
         // self.mmap.flush_async()?;
         Ok(packed)
