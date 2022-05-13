@@ -12,7 +12,7 @@ pub struct VecMap {
 impl VecMap {
     pub fn with_capacity(fp: &str, cap: usize) -> std::io::Result<Self> {
         let file = OpenOptions::new().read(true).append(true).create(true).open(fp)?;
-        let size = max(1, cap);
+        let size = max(4, cap);
         file.set_len(size as u64)?;
         let mut mmap = unsafe {MmapOptions::new().map_mut(&file)?};
         let size_bytes = u32::to_le_bytes(4);
