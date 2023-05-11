@@ -1,4 +1,4 @@
-use fst::{Map, MapBuilder};
+use fst::{Map, MapBuilder, IntoStreamer, Streamer};
 use memmap::Mmap;
 use crate::vecmap::{VecMap, unpack};
 use std::{fs, io, mem::size_of_val, fs::File, fs::OpenOptions};
@@ -8,13 +8,13 @@ pub struct FstMmap {
 }
 
 impl FstMmap {
-    pub fn from_vec<K: AsRef<[u8]> + Ord + Clone>(path: &str, data: Vec<(K, Vec<u8>)>) -> std::io::Result<Self> {
+    pub fn from_vec<K: AsRef<[u8]> + Ord + Clone>(path: &str, data: impl Iterator<Item=(K, Vec<u8>)>) -> std::io::Result<Self> {
         fs::create_dir(path).expect("path already exists");
         let mut vecmap_path = path.to_string();
         vecmap_path.push_str("/data");
         let mut fst_path = path.to_string();
         fst_path.push_str("/fst");
-        let cap = size_of_val(&*data);
+        let cap = 4;
         let mut items = VecMap::with_capacity(&vecmap_path, cap)?;
         let mut fst_input: Vec<(K, u64)> = Vec::new();
         for datum in data {
@@ -45,6 +45,16 @@ impl FstMmap {
             Some(packed) => {
                 let (start, end) = unpack(packed);
                 self.items.get_bytes(start as usize, (end - start) as usize)
+            }
+        }
+    }
+    pub fn get_less_or_equal<K: AsRef<[u8]>>(&self, key: K) -> Option<(Vec<u8>, &[u8])> {
+        let mut stream = self.fst_map.range().le(key).into_stream();
+        match stream.next(){
+            None => {None}
+            Some((key, packed)) => {
+                let (start, end) = unpack(packed);
+                self.items.get_bytes(start as usize, (end - start) as usize).map(|val| (key.to_vec(), val))
             }
         }
     }
