@@ -1,14 +1,14 @@
-use fst::{Map, MapBuilder, IntoStreamer, Streamer};
+use fst::{Map, MapBuilder, IntoStreamer, Streamer, raw::Output};
 use memmap::Mmap;
 use crate::vecmap::{VecMap, unpack};
-use std::{fs, io, mem::size_of_val, fs::File, fs::OpenOptions};
+use std::{fs, io, mem::size_of_val, fs::File, fs::OpenOptions, f32::consts::E};
 pub struct FstMmap {
     pub fst_map: Map<Mmap>,
     items: VecMap
 }
 
 impl FstMmap {
-    pub fn from_vec<K: AsRef<[u8]> + Ord + Clone>(path: &str, data: impl Iterator<Item=(K, Vec<u8>)>) -> std::io::Result<Self> {
+    pub fn from_iter<K: AsRef<[u8]> + Ord + Clone>(path: &str, data: impl IntoIterator<Item=(K, Vec<u8>)>) -> std::io::Result<Self> {
         fs::create_dir(path).expect("path already exists");
         let mut vecmap_path = path.to_string();
         vecmap_path.push_str("/data");
@@ -48,13 +48,55 @@ impl FstMmap {
             }
         }
     }
-    pub fn get_less_or_equal<K: AsRef<[u8]>>(&self, key: K) -> Option<(Vec<u8>, &[u8])> {
-        let mut stream = self.fst_map.range().le(key).into_stream();
-        match stream.next(){
+
+    #[inline]
+    fn get_le(&self, key: &[u8]) -> Option<Output> {
+        let fst = self.fst_map.as_fst();
+        let mut node = fst.root();
+        let mut out = Output::zero();
+        for &b in key {
+            match node.find_input(b) {
+                None => {
+                    let mut greatest_less_than = 0;
+                    for (i, transition) in node.transitions().enumerate() {
+                        if transition.inp > b {
+                            if i == 0 {
+                                return None
+                            }
+                            break;
+                        }
+                        greatest_less_than = i;
+                    }
+                    let t = node.transition(greatest_less_than);
+                    out = out.cat(t.out);
+                    node = fst.node(t.addr);
+                    while !node.is_final() {
+                        let i = node.len() - 1;
+                        let t = node.transition(i);
+                        out = out.cat(t.out);
+                        node = fst.node(t.addr);
+                    }
+                    return Some(out.cat(node.final_output()));
+                },
+                Some(i) => {
+                    let t = node.transition(i);
+                    out = out.cat(t.out);
+                    node = fst.node(t.addr)
+                }
+            }
+        }
+        if !node.is_final() {
+            None
+        } else {
+            Some(out.cat(node.final_output()))
+        }
+    }
+    pub fn get_less_or_equal<K: AsRef<[u8]>>(&self, key: K) -> Option<&[u8]> {
+        match self.get_le(key.as_ref()) {
             None => {None}
-            Some((key, packed)) => {
-                let (start, end) = unpack(packed);
-                self.items.get_bytes(start as usize, (end - start) as usize).map(|val| (key.to_vec(), val))
+            Some(packed) => {
+                let (start, end) = unpack(packed.value());
+                self.items.get_bytes(start as usize, (end - start) as usize)
             }
         }
     }
