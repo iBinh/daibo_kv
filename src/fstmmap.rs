@@ -184,14 +184,13 @@ impl FstMmap {
             }
         }
     }
-    #[inline]
-    pub fn get_less_or_equal_v1(&self, key: &[u8]) -> Option<&[u8]> {
-        if let Some(output) = self.get_le(key) {
-            let (start, end) = unpack(output.value());
-            return self.items.get_bytes(start as usize, (end - start) as usize)
-        }
-        else {
-            return None
+    pub fn get_less_or_equal_v1<K: AsRef<[u8]>>(&self, key: K) -> Option<&[u8]> {
+        match self.get_le(key.as_ref()) {
+            None => {None}
+            Some(packed) => {
+                let (start, end) = unpack(packed.value());
+                self.items.get_bytes(start as usize, (end - start) as usize)
+            }
         }
     }
     #[inline]
