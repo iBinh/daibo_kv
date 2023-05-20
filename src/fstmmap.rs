@@ -185,6 +185,16 @@ impl FstMmap {
         }
     }
     #[inline]
+    pub fn get_less_or_equal_v1(&self, key: &[u8]) -> Option<&[u8]> {
+        if let Some(output) = self.get_le(key) {
+            let (start, end) = unpack(output.value());
+            return self.items.get_bytes(start as usize, (end - start) as usize)
+        }
+        else {
+            return None
+        }
+    }
+    #[inline]
     fn get_le(&self, key: &[u8]) -> Option<Output> {
         let fst = self.fst_map.as_fst();
         let mut node = fst.root();
