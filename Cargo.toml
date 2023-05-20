@@ -1,6 +1,6 @@
 [package]
 name = "daibo_kv"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["daibo83 <linh@goong.io>"]
 edition = "2018"
 
